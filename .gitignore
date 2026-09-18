@@ -3,6 +3,10 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# py-infinity local configuration and secrets
+.env
+mqtt-password.txt
+
 # C extensions
 *.so
 

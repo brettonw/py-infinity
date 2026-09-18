@@ -1,0 +1,38 @@
+services:
+  py-infinity:
+    build: .
+    image: ghcr.io/brettonw/py-infinity:development
+    container_name: py-infinity
+    hostname: py-infinity
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 0.5
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    ports:
+      - "3000:3000"
+    environment:
+      PY_INFINITY_INSTANCE_ID: upstairs
+      PY_INFINITY_DEVICE_NAME: Upstairs Infinity HVAC
+      PY_INFINITY_MQTT_HOST: mosquitto
+      PY_INFINITY_MQTT_PORT: 1883
+      PY_INFINITY_MQTT_USERNAME: py-infinity
+      PY_INFINITY_MQTT_PASSWORD_FILE: /run/secrets/mqtt_password
+      PY_INFINITY_ENABLE_REPLAY: "false"
+    secrets:
+      - mqtt_password
+    volumes:
+      - py-infinity-data:/data
+
+secrets:
+  mqtt_password:
+    file: ./mqtt-password.txt
+
+volumes:
+  py-infinity-data:
