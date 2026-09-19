@@ -22,7 +22,7 @@ def main() -> None:
     store = StateStore(SystemState.empty(settings.instance_id, settings.device_name))
     publisher = PahoStatePublisher(settings, store)
     web.run_app(
-        create_app(settings, store, publisher),
+        create_app(store, publisher),
         host=settings.http_host,
         port=settings.http_port,
         access_log=logging.getLogger("py_infinity.access"),

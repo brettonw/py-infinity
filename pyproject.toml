@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "py-infinity"
 version = "0.1.0"
-description = "Python web proxy with native MQTT discovery for Carrier Infinity HVAC systems"
+description = "Local-only thermostat service with native MQTT discovery for Carrier Infinity HVAC systems"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
@@ -28,7 +28,6 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "pytest>=8.3,<9",
-  "pytest-asyncio>=0.25,<1",
   "ruff>=0.9,<1",
 ]
 
@@ -44,8 +43,6 @@ packages = ["src/py_infinity"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 
 [tool.ruff]

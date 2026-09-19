@@ -8,17 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-def _boolean(value: str | None, *, default: bool = False) -> bool:
-    if value is None:
-        return default
-    normalized = value.strip().lower()
-    if normalized in {"1", "true", "yes", "on"}:
-        return True
-    if normalized in {"0", "false", "no", "off"}:
-        return False
-    raise ValueError(f"invalid boolean value: {value!r}")
-
-
 def _secret(value: str | None, filename: str | None) -> str | None:
     if value:
         return value
@@ -41,7 +30,6 @@ class Settings:
     mqtt_discovery_prefix: str = "homeassistant"
     http_host: str = "0.0.0.0"
     http_port: int = 3000
-    enable_replay: bool = False
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -64,5 +52,4 @@ class Settings:
             ),
             http_host=os.getenv("PY_INFINITY_HTTP_HOST", "0.0.0.0"),
             http_port=int(os.getenv("PY_INFINITY_HTTP_PORT", "3000")),
-            enable_replay=_boolean(os.getenv("PY_INFINITY_ENABLE_REPLAY")),
         )

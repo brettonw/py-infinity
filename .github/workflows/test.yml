@@ -22,3 +22,27 @@ jobs:
       - run: python -m pip install -e '.[test]'
       - run: ruff check .
       - run: pytest
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag py-infinity:test .
+      - name: Exercise the running container
+        run: |
+          docker run --detach --name py-infinity-test \
+            --publish 18080:3000 \
+            --env PY_INFINITY_INSTANCE_ID=container-test \
+            --env PY_INFINITY_MQTT_HOST=127.0.0.1 \
+            --env PY_INFINITY_MQTT_PORT=1 \
+            py-infinity:test
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs py-infinity-test
+          exit 1
+      - if: always()
+        run: docker stop py-infinity-test || true

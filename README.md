@@ -1,14 +1,17 @@
 # py-infinity
 
-`py-infinity` is an independent Python web proxy with native Home Assistant
-MQTT discovery for Carrier Infinity and compatible Bryant Evolution HVAC
-systems.
+`py-infinity` is an independent, local-only thermostat service with native
+Home Assistant MQTT discovery for Carrier Infinity and compatible Bryant
+Evolution HVAC systems.
 
 > [!WARNING]
 > This project is experimental and is not yet ready to receive live thermostat
-> traffic or control HVAC equipment. The first milestone is deliberately
-> read-only. Carrier and Bryant do not sponsor, endorse, or support this
-> project.
+> traffic or control HVAC equipment. Carrier and Bryant do not sponsor,
+> endorse, or support this project.
+
+The finished service will replace the thermostat's Carrier web proxy locally.
+It will not forward requests to Carrier, fetch firmware, expose an Infinitude
+API, or depend on Infinitude at runtime.
 
 ## Current milestone
 
@@ -18,11 +21,29 @@ The initial scaffold provides:
 - retained Home Assistant MQTT device discovery for read-only sensors;
 - retained state plus MQTT last-will availability;
 - `/healthz` and `/status.json` operational endpoints;
-- an opt-in replay endpoint for fixture-driven development;
 - a non-root, resource-limited container example.
 
-No MQTT command topics are advertised, and no thermostat write path exists.
-Home Assistant therefore cannot send HVAC commands through this version.
+The thermostat-facing protocol is not implemented yet. No MQTT command topics
+are advertised and no thermostat write path exists, so this version must not
+replace a running proxy.
+
+## Design constraints
+
+- Local-only: no Carrier/cloud forwarding or general-purpose proxy behavior.
+- Data-driven: observed protocol paths, fields, mappings, enumerations, and XML
+  templates live in versioned protocol resources, not Python constants.
+- Modular: HTTP transport, protocol interpretation, persistence, MQTT, and
+  command reconciliation have explicit boundaries.
+- Fail closed: unknown thermostat requests are recorded safely and receive a
+  deterministic local response; they are never sent to the Internet.
+- No compatibility baggage: Infinitude's API and internal model are neither
+  dependencies nor compatibility targets.
+- Behavioral verification: tests exercise process, HTTP, filesystem, and MQTT
+  boundaries instead of asserting class layout or private call structure.
+
+See [`docs/architecture.md`](docs/architecture.md),
+[`docs/design-principles.md`](docs/design-principles.md), and
+[`docs/implementation-plan.md`](docs/implementation-plan.md).
 
 ## MQTT contract
 
@@ -63,13 +84,7 @@ PY_INFINITY_MQTT_BASE_TOPIC=py-infinity
 PY_INFINITY_MQTT_DISCOVERY_PREFIX=homeassistant
 PY_INFINITY_HTTP_HOST=0.0.0.0
 PY_INFINITY_HTTP_PORT=3000
-PY_INFINITY_ENABLE_REPLAY=false
 ```
-
-The replay endpoint is disabled by default. When explicitly enabled,
-`POST /_development/replay` accepts the normalized JSON shape documented in
-[`docs/mqtt.md`](docs/mqtt.md). It exists only to develop against sanitized
-fixtures before the Carrier protocol adapter is implemented.
 
 ## Container
 
@@ -82,15 +97,12 @@ The Compose example uses a read-only root filesystem, drops Linux
 capabilities, bounds memory and process counts, and stores writable state in a
 named volume. It is not a live thermostat deployment yet.
 
-## Planned sequence
+## Plan
 
-1. Validate MQTT entities from replayed, sanitized fixtures.
-2. Capture and document the thermostat's HTTP exchange without forwarding
-   secrets or personal data into the repository.
-3. Implement the read-only Carrier/Bryant protocol adapter.
-4. Run alongside the existing proxy and compare normalized state.
-5. Design, test, and separately enable serialized MQTT command handling.
-6. Canary one thermostat with an immediate rollback path.
+The detailed build, verification, canary, and rollback sequence is maintained
+in [`docs/implementation-plan.md`](docs/implementation-plan.md). The main-level
+thermostat will be the first canary only after the complete read and command
+cycles pass fixture, broker, and container tests.
 
 ## License
 

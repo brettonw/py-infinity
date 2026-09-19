@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import re
+import tomllib
 from dataclasses import dataclass
+from functools import lru_cache
+from importlib.resources import files
 from typing import Any
 
 from . import __version__
 from .model import SystemState, ZoneState
+
+
+@lru_cache(maxsize=1)
+def _definition() -> dict[str, Any]:
+    resource = files("py_infinity.resources").joinpath("mqtt-discovery.toml")
+    return tomllib.loads(resource.read_text(encoding="utf-8"))
 
 
 def slug(value: str) -> str:
@@ -53,49 +62,20 @@ def _zone_components(zone: ZoneState, unit: str, instance_slug: str) -> dict[str
     zone_slug = slug(zone.zone_id)
     template_base = f"value_json.zones['{zone.zone_id}']"
     prefix = f"py_infinity_{instance_slug}_zone_{zone_slug}"
-    components: dict[str, Any] = {
-        f"{prefix}_temperature": {
-            "platform": "sensor",
-            "unique_id": f"{prefix}_temperature",
-            "name": f"{zone.name} Temperature",
-            "device_class": "temperature",
-            "state_class": "measurement",
-            "unit_of_measurement": unit,
-            "value_template": f"{{{{ {template_base}.current_temperature }}}}",
-        },
-        f"{prefix}_target": {
-            "platform": "sensor",
-            "unique_id": f"{prefix}_target",
-            "name": f"{zone.name} Target Temperature",
-            "device_class": "temperature",
-            "unit_of_measurement": unit,
-            "value_template": f"{{{{ {template_base}.target_temperature }}}}",
-        },
-        f"{prefix}_mode": {
-            "platform": "sensor",
-            "unique_id": f"{prefix}_mode",
-            "name": f"{zone.name} HVAC Mode",
-            "icon": "mdi:thermostat",
-            "value_template": f"{{{{ {template_base}.mode }}}}",
-        },
-        f"{prefix}_action": {
-            "platform": "sensor",
-            "unique_id": f"{prefix}_action",
-            "name": f"{zone.name} HVAC Action",
-            "icon": "mdi:hvac",
-            "value_template": f"{{{{ {template_base}.action }}}}",
-        },
-    }
-    if zone.current_humidity is not None:
-        components[f"{prefix}_humidity"] = {
-            "platform": "sensor",
-            "unique_id": f"{prefix}_humidity",
-            "name": f"{zone.name} Humidity",
-            "device_class": "humidity",
-            "state_class": "measurement",
-            "unit_of_measurement": "%",
-            "value_template": f"{{{{ {template_base}.current_humidity }}}}",
+    context = {"zone_name": zone.name, "temperature_unit": unit}
+    components: dict[str, Any] = {}
+    for component in _definition()["zone_components"]:
+        field = component["field"]
+        if component.get("optional", False) and getattr(zone, field) is None:
+            continue
+        component_id = f"{prefix}_{component['id']}"
+        attributes = {
+            key: value.format_map(context) if isinstance(value, str) else value
+            for key, value in component["attributes"].items()
         }
+        attributes["unique_id"] = component_id
+        attributes["value_template"] = f"{{{{ {template_base}.{field} }}}}"
+        components[component_id] = attributes
     return components
 
 
@@ -110,11 +90,14 @@ def discovery_payload(
             _zone_components(zone, state.temperature_unit, topics.instance_slug)
         )
 
+    definition = _definition()
+    device_definition = definition["device"]
+    identifier = f"{device_definition['identifier_prefix']}_{topics.instance_slug}"
     device: dict[str, Any] = {
-        "identifiers": [f"py_infinity_{topics.instance_slug}"],
+        "identifiers": [identifier],
         "name": device_name,
-        "manufacturer": "Carrier/Bryant",
-        "model": state.model or "Infinity/Evolution HVAC",
+        "manufacturer": device_definition["manufacturer"],
+        "model": state.model or device_definition["default_model"],
         "sw_version": __version__,
     }
     if state.serial:
@@ -123,14 +106,12 @@ def discovery_payload(
     return {
         "device": device,
         "origin": {
-            "name": "py-infinity",
+            "name": definition["origin"]["name"],
             "sw_version": __version__,
-            "support_url": "https://github.com/brettonw/py-infinity",
+            "support_url": definition["origin"]["support_url"],
         },
         "components": components,
         "state_topic": topics.state,
         "availability_topic": topics.availability,
-        "payload_available": "online",
-        "payload_not_available": "offline",
-        "qos": 1,
+        **definition["availability"],
     }

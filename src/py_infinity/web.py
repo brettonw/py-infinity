@@ -1,4 +1,4 @@
-"""Operational HTTP application and development replay endpoint."""
+"""Operational HTTP application."""
 
 from __future__ import annotations
 
@@ -7,14 +7,11 @@ from typing import Any
 
 from aiohttp import web
 
-from .config import Settings
-from .model import SystemState
 from .mqtt import StatePublisher
 from .state import StateStore
 
 STORE_KEY: web.AppKey[StateStore] = web.AppKey("store", StateStore)
 MQTT_KEY: web.AppKey[StatePublisher] = web.AppKey("mqtt", StatePublisher)
-SETTINGS_KEY: web.AppKey[Settings] = web.AppKey("settings", Settings)
 
 
 def _health(store: StateStore, publisher: StatePublisher) -> dict[str, Any]:
@@ -39,31 +36,15 @@ async def status(request: web.Request) -> web.Response:
     return web.json_response(payload)
 
 
-async def replay(request: web.Request) -> web.Response:
-    if not request.app[SETTINGS_KEY].enable_replay:
-        raise web.HTTPNotFound()
-    try:
-        payload = await request.json()
-        state = SystemState.from_mapping(payload)
-    except (ValueError, TypeError) as error:
-        raise web.HTTPBadRequest(text=str(error)) from error
-    request.app[STORE_KEY].replace(state)
-    request.app[MQTT_KEY].publish_state(state)
-    return web.json_response(state.as_dict(), status=202)
-
-
 def create_app(
-    settings: Settings,
     store: StateStore,
     publisher: StatePublisher,
 ) -> web.Application:
     app = web.Application(client_max_size=256 * 1024)
-    app[SETTINGS_KEY] = settings
     app[STORE_KEY] = store
     app[MQTT_KEY] = publisher
     app.router.add_get("/healthz", health)
     app.router.add_get("/status.json", status)
-    app.router.add_post("/_development/replay", replay)
 
     async def start_mqtt(_app: web.Application) -> None:
         publisher.start()
