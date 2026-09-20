@@ -1,3 +1,4 @@
+import json
 import shutil
 from importlib.resources import files
 from pathlib import Path
@@ -62,18 +63,12 @@ def test_unknown_and_invalid_values_do_not_make_the_protocol_exhaustive():
 
 def test_new_known_field_can_be_added_as_data_without_source_change(tmp_path):
     shutil.copytree(str(files("py_infinity.data")), tmp_path, dirs_exist_ok=True)
-    manifest = tmp_path / "protocol.toml"
-    manifest.write_text(
-        manifest.read_text(encoding="utf-8")
-        + """
-
-[[normalization.zone_fields]]
-name = "future_value"
-path = "futureField"
-type = "string"
-""",
-        encoding="utf-8",
+    manifest = tmp_path / "protocol.json"
+    definition = json.loads(manifest.read_text(encoding="utf-8"))
+    definition["normalization"]["zone_fields"].append(
+        {"name": "future_value", "path": "futureField", "type": "string"}
     )
+    manifest.write_text(json.dumps(definition), encoding="utf-8")
 
     state = Protocol.load(tmp_path).normalize_status(
         (FIXTURES / "status.xml").read_bytes(), "test-system"

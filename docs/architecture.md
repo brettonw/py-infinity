@@ -22,8 +22,8 @@ The modules have narrow jobs:
 - `model.py` carries normalized state without claiming every possible
   thermostat field is known.
 
-`src/py_infinity/data/` is part of the product, but not Python behavior. It
-contains the observed HTTP routes, known field mappings, accepted wire values,
+`src/py_infinity/data/` is part of the product, but not Python behavior. Its
+JSON files contain the observed HTTP routes, known field mappings, accepted wire values,
 MQTT entity descriptions, and response templates. Adding an unknown XML field
 to a thermostat document does not require a source-code change and does not
 invalidate the document.
@@ -31,6 +31,12 @@ invalidate the document.
 There is one supported protocol description, not a plugin or compatibility
 framework. It can evolve as observations improve. Python implements mechanisms;
 the data describes wire details.
+
+One process owns a shared HTTP listener and MQTT connection. The system ID in
+each thermostat URL selects an isolated state/document/command context. The
+deployment JSON maps that wire ID to a stable MQTT ID and friendly Home
+Assistant device name. Unknown IDs can be enrolled during bootstrap or rejected
+in strict mode.
 
 ## Network behavior
 
@@ -51,5 +57,6 @@ Normal logs provide:
 - future command validation, delivery, acknowledgment, replacement, and
   expiration events.
 
-Logs do not include MQTT passwords, full XML documents, account identifiers,
-or arbitrary request bodies.
+Logs do not include MQTT passwords, full XML documents, cloud account
+identifiers, or arbitrary request bodies. Thermostat system IDs are logged
+because they are required for initial enrollment and request diagnosis.

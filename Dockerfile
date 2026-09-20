@@ -22,6 +22,6 @@ EXPOSE 3000
 VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/healthz', timeout=2)"]
+  CMD ["python", "-c", "import json,os,urllib.request; c=json.load(open(os.getenv('PY_INFINITY_CONFIG','/config/py-infinity.json'))); p=c['server'].get('listen_port',3000); urllib.request.urlopen(f'http://127.0.0.1:{p}/healthz',timeout=2)"]
 
 ENTRYPOINT ["py-infinity"]

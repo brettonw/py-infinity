@@ -2,35 +2,26 @@
 
 from __future__ import annotations
 
-import re
-import tomllib
+import json
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib.resources import files
-from pathlib import Path
 from typing import Any
 
 from . import __version__
+from .config import slug
 from .model import SystemState, ZoneState
 
 
-@lru_cache
-def _definition(data_directory: Path | None = None) -> dict[str, Any]:
-    root = files("py_infinity.data") if data_directory is None else data_directory
-    resource = root.joinpath("mqtt-discovery.toml")
-    return tomllib.loads(resource.read_text(encoding="utf-8"))
-
-
-def slug(value: str) -> str:
-    normalized = re.sub(r"[^a-z0-9]+", "_", value.strip().lower()).strip("_")
-    if not normalized:
-        raise ValueError("identifier must contain a letter or number")
-    return normalized
+@lru_cache(maxsize=1)
+def _definition() -> dict[str, Any]:
+    resource = files("py_infinity.data").joinpath("mqtt-discovery.json")
+    return json.loads(resource.read_text(encoding="utf-8"))
 
 
 @dataclass(frozen=True, slots=True)
 class Topics:
-    """Stable MQTT topics for one proxy instance."""
+    """Stable MQTT topics for one thermostat device."""
 
     instance_id: str
     base_topic: str = "py-infinity"
@@ -54,15 +45,12 @@ class Topics:
 
     @property
     def discovery(self) -> str:
-        return (
-            f"{self.discovery_prefix.rstrip('/')}/device/"
-            f"py_infinity_{self.instance_slug}/config"
-        )
+        return f"{self.discovery_prefix.rstrip('/')}/device/py_infinity_{self.instance_slug}/config"
 
 
 def _zone_components(
     zone: ZoneState,
-    unit: str,
+    unit: str | None,
     instance_slug: str,
     definition: dict[str, Any],
 ) -> dict[str, Any]:
@@ -91,11 +79,12 @@ def discovery_payload(
     topics: Topics,
     *,
     device_name: str,
-    data_directory: Path | None = None,
+    availability_topic: str | None = None,
+    definition: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build one retained, read-only Home Assistant device discovery document."""
 
-    definition = _definition(data_directory)
+    definition = definition or _definition()
     components: dict[str, Any] = {}
     for zone in state.zones:
         components.update(
@@ -128,6 +117,6 @@ def discovery_payload(
         },
         "components": components,
         "state_topic": topics.state,
-        "availability_topic": topics.availability,
+        "availability_topic": availability_topic or topics.availability,
         **definition["availability"],
     }

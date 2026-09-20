@@ -18,16 +18,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      PY_INFINITY_INSTANCE_ID: upstairs
-      PY_INFINITY_DEVICE_NAME: Upstairs Infinity HVAC
-      PY_INFINITY_MQTT_HOST: mosquitto
-      PY_INFINITY_MQTT_PORT: 1883
-      PY_INFINITY_MQTT_USERNAME: py-infinity
-      PY_INFINITY_MQTT_PASSWORD_FILE: /run/secrets/mqtt_password
-      PY_INFINITY_LOG_LEVEL: INFO
+      PY_INFINITY_CONFIG: /config/py-infinity.json
     secrets:
       - mqtt_password
     volumes:
+      - ./config.json:/config/py-infinity.json:ro
       - py-infinity-data:/data
 
 secrets:

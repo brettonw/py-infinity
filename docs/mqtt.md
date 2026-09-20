@@ -1,19 +1,21 @@
 # MQTT contract
 
-All identifiers are lower-case slugs. An instance ID must remain stable for the
-life of a Home Assistant device entry.
+All identifiers are lower-case slugs. Each thermostat's configured `mqtt_id`
+must remain stable for the life of its Home Assistant device entry. One server
+may publish any number of thermostat devices through one MQTT connection.
 
-For instance `upstairs`:
+For server `hvac` and thermostat `upstairs`:
 
 | Purpose | Topic | Retained |
 |---|---|---:|
-| Availability | `py-infinity/upstairs/availability` | yes |
+| Shared server availability | `py-infinity/hvac/availability` | yes |
 | Normalized state | `py-infinity/upstairs/state` | yes |
 | HA device discovery | `homeassistant/device/py_infinity_upstairs/config` | yes |
 
-The availability payloads are `online` and `offline`. `offline` is configured
-as the MQTT last will. The service also subscribes to `homeassistant/status`
-and republishes discovery when Home Assistant announces `online`.
+The availability payloads are `online` and `offline`. The shared server topic
+is configured as the MQTT last will and is referenced by every thermostat's
+discovery document. The service also subscribes to `homeassistant/status` and
+republishes every discovered device when Home Assistant announces `online`.
 
 ## State document
 
@@ -44,6 +46,6 @@ and republishes discovery when Home Assistant announces `online`.
 
 The current implementation publishes read-only sensor components for current
 temperature, humidity, heat and cool setpoints, and HVAC action. Component
-metadata is defined in `src/py_infinity/data/mqtt-discovery.toml`. It publishes
+metadata is defined in `src/py_infinity/data/mqtt-discovery.json`. It publishes
 no command topics yet. Climate commands will be added with the validated,
 bounded thermostat acknowledgment cycle.

@@ -1,6 +1,4 @@
 import json
-import shutil
-from importlib.resources import files
 from pathlib import Path
 
 from py_infinity.discovery import Topics, discovery_payload
@@ -10,16 +8,14 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def test_discovery_describes_normalized_zone_without_control_topics():
-    state = Protocol.load().normalize_status(
-        (FIXTURES / "status.xml").read_bytes(), "test-system"
-    )
+    state = Protocol.load().normalize_status((FIXTURES / "status.xml").read_bytes(), "test-system")
     topics = Topics("test-system")
 
     payload = discovery_payload(state, topics, device_name="Test HVAC")
     serialized = json.dumps(payload)
 
-    assert payload["state_topic"] == "py-infinity/test_system/state"
-    assert payload["availability_topic"] == "py-infinity/test_system/availability"
+    assert payload["state_topic"] == "py-infinity/test-system/state"
+    assert payload["availability_topic"] == "py-infinity/test-system/availability"
     assert len(payload["components"]) == 5
     assert any(
         component["name"] == "Main Level Temperature"
@@ -29,25 +25,33 @@ def test_discovery_describes_normalized_zone_without_control_topics():
     assert "cmd_t" not in serialized
 
 
-def test_discovery_definition_can_change_as_data_without_source_change(tmp_path):
-    shutil.copytree(str(files("py_infinity.data")), tmp_path, dirs_exist_ok=True)
-    definition = tmp_path / "mqtt-discovery.toml"
-    definition.write_text(
-        definition.read_text(encoding="utf-8").replace(
-            'name = "{zone_name} Temperature"',
-            'name = "{zone_name} Room Reading"',
-        ),
-        encoding="utf-8",
-    )
-    state = Protocol.load(tmp_path).normalize_status(
-        (FIXTURES / "status.xml").read_bytes(), "test-system"
-    )
+def test_discovery_definition_can_change_as_data_without_source_change():
+    definition = {
+        "device": {
+            "identifier_prefix": "test",
+            "manufacturer": "Test",
+            "default_model": "Test",
+        },
+        "origin": {"name": "Test", "support_url": "https://example.invalid"},
+        "availability": {"payload_available": "online", "payload_not_available": "offline"},
+        "zone_components": [
+            {
+                "id": "room_reading",
+                "field": "current_temperature",
+                "attributes": {
+                    "platform": "sensor",
+                    "name": "{zone_name} Room Reading",
+                },
+            }
+        ],
+    }
+    state = Protocol.load().normalize_status((FIXTURES / "status.xml").read_bytes(), "test-system")
 
     payload = discovery_payload(
         state,
         Topics("test-system"),
         device_name="Test HVAC",
-        data_directory=tmp_path,
+        definition=definition,
     )
 
     assert any(

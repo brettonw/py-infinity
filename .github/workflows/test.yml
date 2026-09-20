@@ -32,9 +32,7 @@ jobs:
         run: |
           docker run --detach --name py-infinity-test \
             --publish 18080:3000 \
-            --env PY_INFINITY_INSTANCE_ID=container-test \
-            --env PY_INFINITY_MQTT_HOST=127.0.0.1 \
-            --env PY_INFINITY_MQTT_PORT=1 \
+            --volume "$PWD/tests/fixtures/container-config.json:/config/py-infinity.json:ro" \
             py-infinity:test
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:18080/healthz; then

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import json
 import re
-import tomllib
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -140,14 +140,14 @@ class Protocol:
 
     @classmethod
     def load(cls, data_directory: Path | None = None) -> Protocol:
-        root: Traversable = (
-            files("py_infinity.data") if data_directory is None else data_directory
-        )
-        manifest = root.joinpath("protocol.toml")
+        root: Traversable = files("py_infinity.data") if data_directory is None else data_directory
+        manifest = root.joinpath("protocol.json")
         try:
-            definition = tomllib.loads(manifest.read_text(encoding="utf-8"))
-        except (OSError, tomllib.TOMLDecodeError) as error:
+            definition = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
             raise ProtocolError(f"cannot load {manifest}: {error}") from error
+        if not isinstance(definition, dict):
+            raise ProtocolError(f"{manifest} must contain a JSON object")
         return cls(root, definition)
 
     def match(self, method: str, path: str) -> tuple[Endpoint, dict[str, str]] | None:
@@ -183,13 +183,9 @@ class Protocol:
                 f"expected <{expected_root}> status document, got <{_local_name(root.tag)}>"
             )
 
-        system_values = self._mapped_values(
-            root, normalization.get("system_fields", [])
-        )
+        system_values = self._mapped_values(root, normalization.get("system_fields", []))
         temperature_unit = str(
-            system_values.pop(
-                "temperature_unit", normalization["default_temperature_unit"]
-            )
+            system_values.pop("temperature_unit", normalization["default_temperature_unit"])
         )
         name = str(system_values.get("name") or system_id)
 
@@ -209,9 +205,7 @@ class Protocol:
                     enabled = (_text(element, enabled_path) or "").lower()
                     if enabled not in zone_definition.get("enabled_values", []):
                         continue
-                values = self._mapped_values(
-                    element, normalization.get("zone_fields", [])
-                )
+                values = self._mapped_values(element, normalization.get("zone_fields", []))
                 zones.append(ZoneState(zone_id=zone_id, values=values))
 
         return SystemState(
@@ -224,9 +218,7 @@ class Protocol:
         )
 
     @staticmethod
-    def _mapped_values(
-        element: ET.Element, mappings: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+    def _mapped_values(element: ET.Element, mappings: list[dict[str, Any]]) -> dict[str, Any]:
         values: dict[str, Any] = {}
         for mapping in mappings:
             value = _convert(_text(element, mapping["path"]), mapping["type"])

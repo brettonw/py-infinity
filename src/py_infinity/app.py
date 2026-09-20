@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import logging
+import os
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -10,10 +13,9 @@ from typing import Any
 from aiohttp import web
 
 from .config import Settings
-from .model import SystemState
 from .mqtt import PahoStatePublisher, StatePublisher
 from .protocol import Endpoint, Protocol, ProtocolError
-from .state import StateStore
+from .state import StateStore, ThermostatIdentity, UnknownThermostatError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,14 +25,16 @@ PROTOCOL_KEY: web.AppKey[Protocol] = web.AppKey("protocol", Protocol)
 
 
 def _health(store: StateStore, publisher: StatePublisher, protocol: Protocol) -> dict[str, Any]:
-    state = store.get()
-    age = max(0.0, (datetime.now(UTC) - state.observed_at).total_seconds())
+    states = store.states()
+    ages = [max(0.0, (datetime.now(UTC) - state.observed_at).total_seconds()) for state in states]
     return {
         "status": "ok",
         "read_only": True,
         "mqtt_connected": publisher.connected,
-        "state_age_seconds": round(age, 3),
-        "zones": len(state.zones),
+        "thermostats": len(store.identities()),
+        "reporting_thermostats": len(states),
+        "oldest_state_age_seconds": round(max(ages), 3) if ages else None,
+        "zones": sum(len(state.zones) for state in states),
         "protocol": {"name": protocol.name, "version": protocol.version},
     }
 
@@ -46,13 +50,27 @@ async def health(request: web.Request) -> web.Response:
 
 
 async def status(request: web.Request) -> web.Response:
-    payload = request.app[STORE_KEY].get().as_dict()
+    store = request.app[STORE_KEY]
+    payload = {"systems": store.as_dict()}
     payload["service"] = _health(
-        request.app[STORE_KEY],
+        store,
         request.app[MQTT_KEY],
         request.app[PROTOCOL_KEY],
     )
     return web.json_response(payload)
+
+
+def _log_discovery(identity: ThermostatIdentity) -> None:
+    hint = {
+        "system_id": identity.system_id,
+        "mqtt_id": identity.mqtt_id,
+        "name": identity.name,
+    }
+    LOGGER.warning(
+        "thermostat_discovered system_id=%s configuration=%s",
+        identity.system_id,
+        json.dumps(hint, separators=(",", ":")),
+    )
 
 
 async def _request_document(request: web.Request, protocol: Protocol) -> bytes:
@@ -60,9 +78,7 @@ async def _request_document(request: web.Request, protocol: Protocol) -> bytes:
         form = await request.post()
         value = form.get(protocol.document_form_field)
         if value is None:
-            raise ProtocolError(
-                f"form field {protocol.document_form_field!r} is required"
-            )
+            raise ProtocolError(f"form field {protocol.document_form_field!r} is required")
         return str(value).encode()
     document = await request.read()
     if not document:
@@ -102,7 +118,11 @@ async def thermostat(request: web.Request) -> web.Response:
             document = await _request_document(request, protocol)
             system_id = parameters["system_id"]
             normalized = protocol.normalize_status(document, system_id)
-            store.accept_status(normalized, document)
+            identity, discovered = store.accept_status(normalized, document)
+            if discovered:
+                _log_discovery(identity)
+            normalized = store.get(system_id)
+            assert normalized is not None
             publisher.publish_state(normalized)
             LOGGER.info(
                 "thermostat_status_accepted system_id=%s zones=%d",
@@ -121,22 +141,25 @@ async def thermostat(request: web.Request) -> web.Response:
         if action == "receive_system":
             document = await _request_document(request, protocol)
             protocol.validate_system(document)
-            store.accept_system(document)
+            system_id = parameters["system_id"]
+            identity, discovered = store.accept_system(system_id, document)
+            if discovered:
+                _log_discovery(identity)
             LOGGER.info(
                 "thermostat_system_accepted system_id=%s bytes=%d",
-                parameters["system_id"],
+                system_id,
                 len(document),
             )
             return _response(endpoint, "")
 
         if action == "read_system":
-            document = store.system_document()
+            document = store.system_document(parameters["system_id"])
             if document is None:
                 raise web.HTTPNotFound()
             return _response(endpoint, document)
 
         if action == "read_config":
-            document = store.system_document()
+            document = store.system_document(parameters["system_id"])
             if document is None:
                 raise web.HTTPNotFound()
             return _response(endpoint, protocol.config_from_system(document))
@@ -151,6 +174,14 @@ async def thermostat(request: web.Request) -> web.Response:
             error,
         )
         raise web.HTTPBadRequest(text=str(error)) from error
+    except UnknownThermostatError as error:
+        LOGGER.warning(
+            "thermostat_request_forbidden method=%s path=%s reason=%s",
+            request.method,
+            request.path,
+            error,
+        )
+        raise web.HTTPForbidden(text=str(error)) from error
 
 
 @web.middleware
@@ -199,24 +230,35 @@ def create_app(
 
 
 def main() -> None:
-    settings = Settings.from_env()
+    parser = argparse.ArgumentParser(description="Local Carrier Infinity MQTT service")
+    parser.add_argument(
+        "--config",
+        default=os.getenv("PY_INFINITY_CONFIG", "/config/py-infinity.json"),
+        help="JSON configuration file",
+    )
+    arguments = parser.parse_args()
+    settings = Settings.load(arguments.config)
     logging.basicConfig(
-        level=getattr(logging, settings.log_level, logging.INFO),
+        level=getattr(logging, settings.server.log_level, logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
-    protocol = Protocol.load(settings.data_directory)
+    protocol = Protocol.load()
     LOGGER.info(
-        "service_starting instance_id=%s protocol=%s protocol_version=%s",
-        settings.instance_id,
+        "service_starting server_id=%s configured_thermostats=%d protocol=%s protocol_version=%s",
+        settings.server.server_id,
+        len(settings.thermostats),
         protocol.name,
         protocol.version,
     )
-    store = StateStore(SystemState.empty(settings.instance_id, settings.device_name))
+    store = StateStore(
+        settings.thermostats,
+        accept_unknown=settings.server.accept_unknown_thermostats,
+    )
     publisher = PahoStatePublisher(settings, store)
     web.run_app(
         create_app(protocol, store, publisher),
-        host=settings.http_host,
-        port=settings.http_port,
+        host=settings.server.listen_host,
+        port=settings.server.listen_port,
         access_log=None,
     )
 

@@ -5,6 +5,7 @@ __pycache__/
 
 # py-infinity local configuration and secrets
 .env
+config.json
 mqtt-password.txt
 
 # C extensions

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "device": {
+    "identifier_prefix": "py_infinity",
+    "manufacturer": "Carrier/Bryant",
+    "default_model": "Infinity/Evolution HVAC"
+  },
+  "origin": {
+    "name": "py-infinity",
+    "support_url": "https://github.com/brettonw/py-infinity"
+  },
+  "availability": {
+    "payload_available": "online",
+    "payload_not_available": "offline",
+    "qos": 1
+  },
+  "zone_components": [
+    {
+      "id": "temperature",
+      "field": "current_temperature",
+      "attributes": {
+        "platform": "sensor",
+        "name": "{zone_name} Temperature",
+        "device_class": "temperature",
+        "state_class": "measurement",
+        "unit_of_measurement": "{temperature_unit}"
+      }
+    },
+    {
+      "id": "humidity",
+      "field": "current_humidity",
+      "optional": true,
+      "attributes": {
+        "platform": "sensor",
+        "name": "{zone_name} Humidity",
+        "device_class": "humidity",
+        "state_class": "measurement",
+        "unit_of_measurement": "%"
+      }
+    },
+    {
+      "id": "heat_setpoint",
+      "field": "heat_setpoint",
+      "attributes": {
+        "platform": "sensor",
+        "name": "{zone_name} Heat Setpoint",
+        "device_class": "temperature",
+        "unit_of_measurement": "{temperature_unit}"
+      }
+    },
+    {
+      "id": "cool_setpoint",
+      "field": "cool_setpoint",
+      "attributes": {
+        "platform": "sensor",
+        "name": "{zone_name} Cool Setpoint",
+        "device_class": "temperature",
+        "unit_of_measurement": "{temperature_unit}"
+      }
+    },
+    {
+      "id": "action",
+      "field": "action",
+      "optional": true,
+      "attributes": {
+        "platform": "sensor",
+        "name": "{zone_name} HVAC Action",
+        "icon": "mdi:hvac"
+      }
+    }
+  ]
+}

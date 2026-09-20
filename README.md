@@ -22,9 +22,9 @@ The service currently provides:
 - tolerant extraction of known values from thermostat XML without rejecting
   additional fields;
 - preservation of the accepted raw system document in memory;
-- a normalized, open-ended system and zone state model;
+- isolated, normalized state for multiple thermostats behind one HTTP listener;
 - retained Home Assistant MQTT device discovery for read-only sensors;
-- retained state plus MQTT last-will availability;
+- per-thermostat retained state plus one server MQTT last-will availability;
 - `/healthz` and `/status.json` operational endpoints;
 - concise lifecycle, HTTP, state-acceptance, rejection, and MQTT logs;
 - a non-root, resource-limited container example.
@@ -56,11 +56,14 @@ See [`docs/architecture.md`](docs/architecture.md),
 
 ## MQTT contract
 
-For an instance named `upstairs`, the service publishes:
+For a server named `hvac` with thermostats named `main-level` and `upstairs`,
+the service publishes:
 
 ```text
-py-infinity/upstairs/availability
+py-infinity/hvac/availability
+py-infinity/main-level/state
 py-infinity/upstairs/state
+homeassistant/device/py_infinity_main-level/config
 homeassistant/device/py_infinity_upstairs/config
 ```
 
@@ -77,26 +80,56 @@ python -m venv .venv
 . .venv/bin/activate
 python -m pip install -e '.[test]'
 pytest
-py-infinity
+cp config.example.json config.json
+# Edit config.json, then:
+py-infinity --config config.json
 ```
 
-Useful environment variables:
+`config.json` contains shared server and MQTT settings plus an optional list of
+thermostat names:
 
-```text
-PY_INFINITY_INSTANCE_ID=upstairs
-PY_INFINITY_DEVICE_NAME=Upstairs Infinity HVAC
-PY_INFINITY_MQTT_HOST=mosquitto
-PY_INFINITY_MQTT_PORT=1883
-PY_INFINITY_MQTT_USERNAME=
-PY_INFINITY_MQTT_PASSWORD_FILE=/run/secrets/mqtt_password
-PY_INFINITY_MQTT_BASE_TOPIC=py-infinity
-PY_INFINITY_MQTT_DISCOVERY_PREFIX=homeassistant
-PY_INFINITY_HTTP_HOST=0.0.0.0
-PY_INFINITY_HTTP_PORT=3000
-PY_INFINITY_LOG_LEVEL=INFO
-# Optional override containing protocol.toml, mqtt-discovery.toml, and templates/
-PY_INFINITY_DATA_DIRECTORY=
+```json
+{
+  "server": {
+    "id": "hvac",
+    "listen_host": "0.0.0.0",
+    "listen_port": 3000,
+    "data_directory": "/data",
+    "accept_unknown_thermostats": true,
+    "log_level": "INFO"
+  },
+  "mqtt": {
+    "host": "mosquitto",
+    "port": 1883,
+    "username": "py-infinity",
+    "password_file": "/run/secrets/mqtt_password",
+    "base_topic": "py-infinity",
+    "discovery_prefix": "homeassistant"
+  },
+  "thermostats": [
+    {
+      "system_id": "observed-wire-system-id",
+      "mqtt_id": "main-level",
+      "name": "Main Level HVAC"
+    }
+  ]
+}
 ```
+
+`PY_INFINITY_CONFIG` may select the file instead of `--config`; it defaults to
+`/config/py-infinity.json`. Other environment variables do not configure the
+application.
+
+### First thermostat connection
+
+Start with `"thermostats": []` and
+`"accept_unknown_thermostats": true` when the wire system IDs are not known.
+Each thermostat is kept separate immediately, using its system ID as a safe
+temporary MQTT ID. `/status.json` and the `thermostat_discovered` log event show
+the observed ID and a ready-to-copy JSON object. Add that object to
+`thermostats`, choose its permanent `mqtt_id` and name, then restart. Set
+`accept_unknown_thermostats` to `false` after enrollment if an allow-list is
+desired.
 
 ## Container
 
@@ -105,7 +138,8 @@ docker compose -f docker-compose.example.yml up --build
 curl http://127.0.0.1:3000/healthz
 ```
 
-The Compose example uses a read-only root filesystem, drops Linux
+Copy `config.example.json` to `config.json` before starting Compose. The Compose
+example uses a read-only root filesystem, drops Linux
 capabilities, bounds memory and process counts, and stores writable state in a
 named volume. It is not a live thermostat deployment yet.
 

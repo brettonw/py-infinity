@@ -5,6 +5,8 @@
   compatibility, or deployment migration/rollback behavior.
 - Put observed wire paths, XML mappings, enumerations, defaults, templates, and
   MQTT entity metadata in `src/py_infinity/data/`, not Python constants.
+- Use JSON for deployment configuration and application-owned declarative data;
+  do not introduce TOML or YAML as an application configuration format.
 - Treat mappings as partial knowledge. Tolerate unrecognized XML fields and
   preserve accepted raw documents.
 - Keep HTTP, protocol interpretation, state, and MQTT modular.

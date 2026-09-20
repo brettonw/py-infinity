@@ -11,7 +11,7 @@ Status: initial read cycle implemented.
 - Use Infinitude's public routes, fixtures, and tests as interoperability
   evidence.
 - Keep endpoint paths, methods, XML field mappings, accepted wire values, MQTT
-  entity definitions, and response text in declarative files under
+  entity definitions, and response text in JSON files under
   `src/py_infinity/data/`.
 - Keep response bodies in separate templates.
 - Extract only fields we currently understand. Preserve the original accepted
@@ -69,8 +69,8 @@ asserting queue classes or call order.
 
 Status: not started.
 
-- Build one container per thermostat using the same image and separate state
-  and MQTT identity.
+- Run one server for multiple thermostats with isolated state, documents,
+  commands, persistence paths, and MQTT identities keyed by wire system ID.
 - Run non-root with a read-only root filesystem, bounded resources, and only
   `/data` writable.
 - Verify the container locally, then use the main-level thermostat first

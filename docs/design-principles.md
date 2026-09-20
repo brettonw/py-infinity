@@ -5,7 +5,9 @@
 - Never forward traffic to Carrier or act as a general HTTP proxy.
 - Do not implement the Infinitude REST API or preserve Infinitude internals.
 - Keep wire paths, field mappings, enumerations, display metadata, defaults,
-  and response bodies in declarative data and templates.
+  and response bodies in JSON data and templates.
+- Use one JSON deployment file for server, MQTT, and thermostat naming. Keep
+  secrets in referenced files rather than inline JSON.
 - Do not assume the declarative mappings exhaust the thermostat document.
   Unknown fields are tolerated and the accepted raw document is preserved.
 - Keep HTTP, protocol interpretation, state, and MQTT isolated behind small
