@@ -7,15 +7,17 @@ import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
 from . import __version__
 from .model import SystemState, ZoneState
 
 
-@lru_cache(maxsize=1)
-def _definition() -> dict[str, Any]:
-    resource = files("py_infinity.resources").joinpath("mqtt-discovery.toml")
+@lru_cache
+def _definition(data_directory: Path | None = None) -> dict[str, Any]:
+    root = files("py_infinity.data") if data_directory is None else data_directory
+    resource = root.joinpath("mqtt-discovery.toml")
     return tomllib.loads(resource.read_text(encoding="utf-8"))
 
 
@@ -58,15 +60,20 @@ class Topics:
         )
 
 
-def _zone_components(zone: ZoneState, unit: str, instance_slug: str) -> dict[str, Any]:
+def _zone_components(
+    zone: ZoneState,
+    unit: str,
+    instance_slug: str,
+    definition: dict[str, Any],
+) -> dict[str, Any]:
     zone_slug = slug(zone.zone_id)
     template_base = f"value_json.zones['{zone.zone_id}']"
     prefix = f"py_infinity_{instance_slug}_zone_{zone_slug}"
-    context = {"zone_name": zone.name, "temperature_unit": unit}
+    context = {"zone_name": zone.name, "temperature_unit": unit or ""}
     components: dict[str, Any] = {}
-    for component in _definition()["zone_components"]:
+    for component in definition["zone_components"]:
         field = component["field"]
-        if component.get("optional", False) and getattr(zone, field) is None:
+        if component.get("optional", False) and zone.values.get(field) is None:
             continue
         component_id = f"{prefix}_{component['id']}"
         attributes = {
@@ -80,28 +87,37 @@ def _zone_components(zone: ZoneState, unit: str, instance_slug: str) -> dict[str
 
 
 def discovery_payload(
-    state: SystemState, topics: Topics, *, device_name: str
+    state: SystemState,
+    topics: Topics,
+    *,
+    device_name: str,
+    data_directory: Path | None = None,
 ) -> dict[str, Any]:
     """Build one retained, read-only Home Assistant device discovery document."""
 
+    definition = _definition(data_directory)
     components: dict[str, Any] = {}
     for zone in state.zones:
         components.update(
-            _zone_components(zone, state.temperature_unit, topics.instance_slug)
+            _zone_components(
+                zone,
+                state.temperature_unit,
+                topics.instance_slug,
+                definition,
+            )
         )
 
-    definition = _definition()
     device_definition = definition["device"]
     identifier = f"{device_definition['identifier_prefix']}_{topics.instance_slug}"
     device: dict[str, Any] = {
         "identifiers": [identifier],
         "name": device_name,
         "manufacturer": device_definition["manufacturer"],
-        "model": state.model or device_definition["default_model"],
+        "model": state.values.get("model") or device_definition["default_model"],
         "sw_version": __version__,
     }
-    if state.serial:
-        device["serial_number"] = state.serial
+    if state.values.get("serial"):
+        device["serial_number"] = state.values["serial"]
 
     return {
         "device": device,

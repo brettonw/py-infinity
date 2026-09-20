@@ -42,7 +42,7 @@ def running_service() -> Iterator[str]:
         }
     )
     process = subprocess.Popen(
-        [sys.executable, "-m", "py_infinity.main"],
+        [sys.executable, "-m", "py_infinity.app"],
         env=environment,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -86,6 +86,7 @@ def test_health_and_status_are_read_only_and_consistent():
     assert state["name"] == "Behavior Test HVAC"
     assert state["zones"] == {}
     assert state["service"]["read_only"] is True
+    assert state["service"]["protocol"]["version"] == "observed-1"
 
 
 def test_unknown_routes_fail_closed():

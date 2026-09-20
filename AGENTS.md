@@ -1,22 +1,19 @@
 # Repository instructions
 
-- Keep the service local-only. Never add Carrier/cloud forwarding or a generic
-  proxy fallback.
-- Do not add Infinitude API compatibility or depend on Infinitude at runtime.
-- Store protocol paths, field names, mappings, enumerations, units, defaults,
-  XML templates, and response content in versioned resources under
-  `protocol/`, not in Python source.
-- Keep MQTT entity definitions, names, icons, units, and value templates in
-  declarative resources rather than Python constants.
-- Keep transport, protocol interpretation, normalized state, persistence,
-  MQTT, and command reconciliation modular.
-- Unknown protocol behavior fails closed and must not generate Internet
+- Keep this a small local thermostat HTTP-to-MQTT service.
+- Never add Carrier/cloud forwarding, a generic proxy, Infinitude API
+  compatibility, or deployment migration/rollback behavior.
+- Put observed wire paths, XML mappings, enumerations, defaults, templates, and
+  MQTT entity metadata in `src/py_infinity/data/`, not Python constants.
+- Treat mappings as partial knowledge. Tolerate unrecognized XML fields and
+  preserve accepted raw documents.
+- Keep HTTP, protocol interpretation, state, and MQTT modular.
+- Unknown protocol behavior fails locally and must not generate Internet
   traffic.
-- Do not add development-only HTTP routes or permanent compatibility flags.
-- Tests must be functional or behavioral at supported boundaries. Do not mock
-  internal functions or assert private implementation shape.
-- Add sanitized fixtures for observed protocol scenarios and regression bugs.
-- Keep thermostat command handling serialized, bounded, and dependent on a
-  subsequent observed acknowledgment.
-- Preserve the physical thermostat's ability to operate independently when the
-  service, MQTT broker, or Home Assistant is unavailable.
+- Do not add development-only HTTP routes.
+- Emit useful lifecycle, request, state, MQTT, and command-outcome logs without
+  secrets or full payloads.
+- Write unit and functional tests around public behavior and realistic cases.
+  Do not mock internal functions or assert implementation shape.
+- Commands must be bounded and completed only by subsequently observed
+  thermostat acknowledgment.

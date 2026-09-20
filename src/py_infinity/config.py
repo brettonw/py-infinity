@@ -30,6 +30,8 @@ class Settings:
     mqtt_discovery_prefix: str = "homeassistant"
     http_host: str = "0.0.0.0"
     http_port: int = 3000
+    data_directory: Path | None = None
+    log_level: str = "INFO"
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -52,4 +54,10 @@ class Settings:
             ),
             http_host=os.getenv("PY_INFINITY_HTTP_HOST", "0.0.0.0"),
             http_port=int(os.getenv("PY_INFINITY_HTTP_PORT", "3000")),
+            data_directory=(
+                Path(value)
+                if (value := os.getenv("PY_INFINITY_DATA_DIRECTORY"))
+                else None
+            ),
+            log_level=os.getenv("PY_INFINITY_LOG_LEVEL", "INFO").upper(),
         )

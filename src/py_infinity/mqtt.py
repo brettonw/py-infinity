@@ -57,6 +57,11 @@ class PahoStatePublisher:
         return self._connected
 
     def start(self) -> None:
+        LOGGER.info(
+            "mqtt_connecting host=%s port=%d",
+            self._settings.mqtt_host,
+            self._settings.mqtt_port,
+        )
         self._client.connect_async(self._settings.mqtt_host, self._settings.mqtt_port)
         self._client.loop_start()
 
@@ -76,7 +81,10 @@ class PahoStatePublisher:
         # from the last successful equipment read with an empty device.
         if state.zones:
             discovery = discovery_payload(
-                state, self._topics, device_name=self._settings.device_name
+                state,
+                self._topics,
+                device_name=self._settings.device_name,
+                data_directory=self._settings.data_directory,
             )
             self._client.publish(
                 self._topics.discovery,
@@ -96,6 +104,7 @@ class PahoStatePublisher:
             LOGGER.error("MQTT connection failed: %s", reason_code)
             return
         self._connected = True
+        LOGGER.info("mqtt_connected")
         client.subscribe("homeassistant/status", qos=1)
         client.publish(self._topics.availability, "online", qos=1, retain=True)
         self.publish_state(self._store.get())
@@ -106,6 +115,8 @@ class PahoStatePublisher:
         self._connected = False
         if reason_code.is_failure:
             LOGGER.warning("Unexpected MQTT disconnect: %s", reason_code)
+        else:
+            LOGGER.info("mqtt_disconnected")
 
     def _on_message(self, _client, _userdata, message) -> None:
         if message.topic == "homeassistant/status" and message.payload == b"online":

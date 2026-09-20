@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<system version="1.7">
+  <profile>
+    <name>Test System</name>
+  </profile>
+  <config>
+    <mode>cool</mode>
+    <cfgem>F</cfgem>
+    <zones>
+      <zone id="1">
+        <name>Main Level</name>
+        <enabled>on</enabled>
+      </zone>
+    </zones>
+  </config>
+  <futureSection><value>ignored safely</value></futureSection>
+</system>

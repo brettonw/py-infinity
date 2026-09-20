@@ -1,0 +1,145 @@
+[protocol]
+name = "Carrier Infinity Touch local HTTP"
+version = "observed-1"
+document_form_field = "data"
+
+[responses.time]
+format = "%Y-%m-%dT%H:%M:%SZ"
+
+[responses.status]
+ping_rate = 12
+server_has_changes = "false"
+config_has_changes = "false"
+
+[[endpoints]]
+method = "GET"
+path = "/Alive"
+action = "static"
+response = "alive.txt"
+content_type = "text/plain"
+
+[[endpoints]]
+method = "GET"
+path = "/time"
+action = "time"
+response = "time.xml"
+content_type = "application/xml"
+
+[[endpoints]]
+method = "POST"
+path = "/systems/{system_id}/status"
+action = "receive_status"
+response = "status.xml"
+content_type = "application/xml"
+
+[[endpoints]]
+method = "POST"
+path = "/systems/{system_id}"
+action = "receive_system"
+content_type = "text/plain"
+
+[[endpoints]]
+method = "GET"
+path = "/systems/{system_id}"
+action = "read_system"
+content_type = "application/xml"
+
+[[endpoints]]
+method = "GET"
+path = "/systems/{system_id}/config"
+action = "read_config"
+content_type = "application/xml"
+
+[[endpoints]]
+method = "GET"
+path = "/releaseNotes/{release_id}"
+action = "static"
+response = "no-update.txt"
+content_type = "text/plain"
+
+[normalization]
+status_root = "status"
+system_root = "system"
+config_path = "config"
+default_temperature_unit = "°F"
+
+[normalization.zones]
+path = "zones/zone"
+id_attribute = "id"
+enabled_path = "enabled"
+enabled_values = ["on", "true", "1"]
+
+[[normalization.system_fields]]
+name = "name"
+path = "name"
+type = "string"
+
+[[normalization.system_fields]]
+name = "outdoor_temperature"
+path = "oat"
+type = "float"
+
+[[normalization.system_fields]]
+name = "mode"
+path = "mode"
+type = "lower"
+
+[[normalization.system_fields]]
+name = "temperature_unit"
+path = "cfgem"
+type = "temperature_unit"
+
+[[normalization.system_fields]]
+name = "status_code"
+path = "statusCode"
+type = "integer"
+
+[[normalization.zone_fields]]
+name = "name"
+path = "name"
+type = "string"
+
+[[normalization.zone_fields]]
+name = "current_activity"
+path = "currentActivity"
+type = "lower"
+
+[[normalization.zone_fields]]
+name = "current_temperature"
+path = "rt"
+type = "float"
+
+[[normalization.zone_fields]]
+name = "current_humidity"
+path = "rh"
+type = "float"
+
+[[normalization.zone_fields]]
+name = "heat_setpoint"
+path = "htsp"
+type = "float"
+
+[[normalization.zone_fields]]
+name = "cool_setpoint"
+path = "clsp"
+type = "float"
+
+[[normalization.zone_fields]]
+name = "fan"
+path = "fan"
+type = "lower"
+
+[[normalization.zone_fields]]
+name = "hold"
+path = "hold"
+type = "lower"
+
+[[normalization.zone_fields]]
+name = "hold_until"
+path = "otmr"
+type = "string"
+
+[[normalization.zone_fields]]
+name = "action"
+path = "zoneconditioning"
+type = "lower"

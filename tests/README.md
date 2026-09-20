@@ -1,10 +1,12 @@
 # Test policy
 
-Tests exercise supported boundaries and observable outcomes. They do not lock
-the project to private functions, classes, call sequences, route-table layout,
-or module structure.
+The suite combines focused unit tests with boundary-level functional tests.
 
-The current suite starts the installed service as a subprocess and uses HTTP.
-Future protocol scenarios will replay sanitized requests through that same
-boundary and observe HTTP, persisted files, and MQTT through a real test
-broker.
+- Sanitized fixtures exercise normalization and tolerance of additional data.
+- HTTP tests submit real form/XML requests and inspect public responses/state.
+- Process tests launch the installed application.
+- CI builds and queries the container.
+- MQTT command tests will use a real broker when the command cycle is added.
+
+Tests assert supported behavior, not private functions, class hierarchy,
+internal calls, route-table layout, or module structure.

@@ -1,1 +1,0 @@
-"""Packaged, declarative service resources."""

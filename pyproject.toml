@@ -28,11 +28,12 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<1",
   "ruff>=0.9,<1",
 ]
 
 [project.scripts]
-py-infinity = "py_infinity.main:main"
+py-infinity = "py_infinity.app:main"
 
 [project.urls]
 Homepage = "https://github.com/brettonw/py-infinity"
@@ -43,6 +44,8 @@ packages = ["src/py_infinity"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 
 [tool.ruff]

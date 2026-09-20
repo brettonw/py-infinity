@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<status xmlns:future="urn:example:future">
+  <timestamp>2026-09-19T12:00:00Z</timestamp>
+  <name>Test System</name>
+  <oat>81.5</oat>
+  <mode>COOL</mode>
+  <cfgem>F</cfgem>
+  <statusCode>0</statusCode>
+  <future:telemetry>ignored safely</future:telemetry>
+  <zones>
+    <zone id="1">
+      <name>Main Level</name>
+      <enabled>on</enabled>
+      <currentActivity>home</currentActivity>
+      <rt>74.5</rt>
+      <rh>47</rh>
+      <htsp>68</htsp>
+      <clsp>72</clsp>
+      <fan>off</fan>
+      <hold>off</hold>
+      <otmr />
+      <zoneconditioning>cooling</zoneconditioning>
+      <futureField>retained only in raw XML</futureField>
+    </zone>
+    <zone id="2">
+      <name>Disabled Zone</name>
+      <enabled>off</enabled>
+      <rt>99</rt>
+    </zone>
+  </zones>
+</status>

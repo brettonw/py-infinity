@@ -22,24 +22,28 @@ and republishes discovery when Home Assistant announces `online`.
   "system_id": "redacted-system-id",
   "name": "Upstairs",
   "temperature_unit": "°F",
-  "model": "SYSTXCCITC01-B",
-  "serial": "redacted",
   "observed_at": "2026-09-18T12:00:00+00:00",
+  "system": {
+    "mode": "cool",
+    "outdoor_temperature": 84.0,
+    "status_code": 0
+  },
   "zones": {
     "1": {
       "zone_id": "1",
       "name": "Upstairs Hall",
       "current_temperature": 72.5,
       "current_humidity": 44.0,
-      "target_temperature": 71.0,
-      "mode": "cool",
-      "action": "idle"
+      "heat_setpoint": 68.0,
+      "cool_setpoint": 74.0,
+      "action": "cooling"
     }
   }
 }
 ```
 
-Milestone one publishes read-only sensor components for current temperature,
-humidity, target temperature, HVAC mode, and HVAC action. It publishes no
-command topics. Climate entities and command topics will be designed together
-with the validated thermostat write path.
+The current implementation publishes read-only sensor components for current
+temperature, humidity, heat and cool setpoints, and HVAC action. Component
+metadata is defined in `src/py_infinity/data/mqtt-discovery.toml`. It publishes
+no command topics yet. Climate commands will be added with the validated,
+bounded thermostat acknowledgment cycle.

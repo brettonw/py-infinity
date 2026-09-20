@@ -1,96 +1,55 @@
 # Architecture
 
-`py-infinity` is a local endpoint for the thermostat, not an Internet
-forwarder. Infinitude may be consulted as one interoperability reference, but
-it is not an upstream service, runtime dependency, data model, or compatibility
-target.
+The application is deliberately small:
 
 ```text
-Carrier/Bryant thermostat
-           |
-           v
- thermostat HTTP transport
-           |
-           v
- versioned protocol resources ---> parser/renderer
-           |                           |
-           +-------------+-------------+
-                         v
-              normalized system state
-                    /           \
-                   v             v
-          MQTT discovery     operational HTTP
-          state + commands   /healthz /status.json
-                   |
-                   v
-          serialized command intent
-                   |
-                   v
-       next local thermostat poll/config response
+thermostat HTTP ──> protocol data + parser ──> current state ──> MQTT
+                         ^                         |
+                         |                         v
+                    templates              pending command
+                         ^                         |
+                         +──── next config poll ──+
 ```
 
-The normalized snapshot is the boundary between the thermostat protocol and
-Home Assistant. MQTT code never reads thermostat XML, and thermostat HTTP code
-never constructs Home Assistant discovery documents.
+The modules have narrow jobs:
 
-## Protocol resources
+- `app.py` owns HTTP transport, request logging, and process startup.
+- `protocol.py` loads declarative data, matches thermostat requests, parses
+  known XML values, and renders local responses.
+- `state.py` owns the latest accepted documents and normalized state.
+- `mqtt.py` owns broker lifecycle and the public MQTT boundary.
+- `discovery.py` renders Home Assistant discovery from declarative entity data.
+- `model.py` carries normalized state without claiming every possible
+  thermostat field is known.
 
-Protocol observations are versioned outside the Python package source:
+`src/py_infinity/data/` is part of the product, but not Python behavior. It
+contains the observed HTTP routes, known field mappings, accepted wire values,
+MQTT entity descriptions, and response templates. Adding an unknown XML field
+to a thermostat document does not require a source-code change and does not
+invalidate the document.
 
-```text
-protocol/<protocol-version>/
-  manifest.toml
-  schemas/
-  templates/
-tests/fixtures/<protocol-version>/<scenario>/
-  request.*
-  expected.*
-```
-
-The resources own endpoint paths, methods, XML names, field mappings,
-enumerations, units, safe defaults, and response templates. Python owns general
-algorithms: HTTP handling, XML parsing/rendering, schema validation, atomic
-persistence, MQTT transport, and command serialization. This boundary avoids
-both hard-coded protocol data and an unnecessarily complex rules language.
-
-A protocol pack must be selected explicitly at startup and validated in full.
-Missing, duplicate, or malformed definitions prevent readiness. There is no
-silent fallback to embedded values.
+There is one supported protocol description, not a plugin or compatibility
+framework. It can evolve as observations improve. Python implements mechanisms;
+the data describes wire details.
 
 ## Network behavior
 
-The production service has no Carrier upstream and no generic forwarding
-facility. Unknown requests are logged with bounded, redacted metadata and fail
-closed. MQTT is the only required outbound application connection. Optional
-local data providers, such as weather supplied through MQTT, must be separately
-configured and remain disabled by default.
+The service has no Carrier upstream and no generic forwarding action. Unknown
+requests return `404` locally and are logged. MQTT is its only required
+outbound application connection.
 
-Firmware metadata and weather responses, if required by observed thermostat
-behavior, are rendered from protocol resources and local inputs. No firmware
-payload is downloaded or offered.
+## Logging
 
-## Safety boundaries
+Normal logs provide:
 
-- Until the command path is complete, the service advertises no MQTT command
-  topics.
-- Commands are serialized per system, validated before staging, exposed to the
-  thermostat only through its normal polling cycle, and completed only after
-  the thermostat reports the requested state.
-- Retries are bounded. A conflicting observation cancels or rejects an intent;
-  it never produces an uncontrolled retry loop.
-- The physical thermostat remains responsible for HVAC operation. This proxy
-  must never be required for heat or cooling to continue safely.
-- Each container represents one thermostat/system. Multiple containers share
-  code but have independent MQTT identities and persisted state.
+- service and protocol-data startup;
+- MQTT connecting, connected, and disconnected transitions;
+- HTTP method, path, response status, and elapsed time;
+- accepted thermostat status/system documents with system ID and bounded
+  summary information;
+- rejected and unknown requests with a concise reason;
+- future command validation, delivery, acknowledgment, replacement, and
+  expiration events.
 
-## Persistence
-
-The current scaffold holds only the latest immutable state in memory. The
-thermostat protocol milestone adds atomic persistence beneath `/data` for the
-last accepted raw document, normalized state, pending command intent, and
-acknowledgment metadata. Historical telemetry belongs in MQTT consumers such
-as Home Assistant rather than in this service.
-
-Stored documents carry an explicit schema version. A schema change either has
-a tested one-time migration or intentionally starts with a new empty store;
-the runtime does not retain parallel legacy readers indefinitely.
+Logs do not include MQTT passwords, full XML documents, account identifiers,
+or arbitrary request bodies.

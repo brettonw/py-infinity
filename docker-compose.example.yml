@@ -24,6 +24,7 @@ services:
       PY_INFINITY_MQTT_PORT: 1883
       PY_INFINITY_MQTT_USERNAME: py-infinity
       PY_INFINITY_MQTT_PASSWORD_FILE: /run/secrets/mqtt_password
+      PY_INFINITY_LOG_LEVEL: INFO
     secrets:
       - mqtt_password
     volumes:
